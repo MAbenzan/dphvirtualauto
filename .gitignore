@@ -1,0 +1,18 @@
+# Node / build
+node_modules/
+dist/
+
+# Playwright / testing artifacts
+test-results/
+playwright-report/
+allure-results/
+allure-report/
+artifacts/
+
+# Env files / secrets
+.env*
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log
