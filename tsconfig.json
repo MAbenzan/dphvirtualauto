@@ -12,6 +12,7 @@
       "@actions/*": ["src/actions/*"],
       "@pages/*": ["src/pages/*"],
       "@components/*": ["src/pages/components/*"],
+      "@selectors": ["src/selectors/index"],
       "@selectors/*": ["src/selectors/*"],
       "@utils/*": ["src/utils/*"],
       "@services/*": ["src/services/*"]

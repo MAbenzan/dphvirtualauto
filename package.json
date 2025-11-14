@@ -4,9 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "pretest": "node scripts/generate-selectors-barrel.js",
     "test": "playwright test",
+    "pretest:ui": "node scripts/generate-selectors-barrel.js",
     "test:ui": "playwright test --ui",
+    "pretest:grep": "node scripts/generate-selectors-barrel.js",
     "test:grep": "playwright test --grep @critical",
+    "pretest:chromium": "node scripts/generate-selectors-barrel.js",
     "test:chromium": "playwright test --project=chromium",
     "report:open": "playwright show-report",
     "allure:generate": "allure generate -c allure-results",

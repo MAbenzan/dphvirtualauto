@@ -9,13 +9,21 @@ export type ActionOptions = {
   waitFor?: 'load' | 'domcontentloaded' | 'networkidle';
   preCheck?: () => Promise<void> | void;
   postCheck?: () => Promise<void> | void;
+  speedMs?: number;
+  highlight?: boolean;
 };
 
 /**
  * Acciones reutilizables con esperas inteligentes, reintentos y validaciones.
  */
 export class Actions {
-  constructor(private page: Page, private defaults: ActionOptions = { timeout: 10000, retries: 3, waitFor: 'domcontentloaded' }) {
+  constructor(private page: Page, private defaults: ActionOptions = {
+    timeout: 30000,
+    retries: 1,
+    waitFor: 'networkidle',
+    speedMs: Number(process.env.ACTION_SPEED_MS || '0'),
+    highlight: true,
+  }) {
     if (this.defaults.timeout) this.page.setDefaultTimeout(this.defaults.timeout);
   }
 
@@ -26,11 +34,26 @@ export class Actions {
       waitFor: opts?.waitFor ?? this.defaults.waitFor,
       preCheck: opts?.preCheck ?? this.defaults.preCheck,
       postCheck: opts?.postCheck ?? this.defaults.postCheck,
+      speedMs: opts?.speedMs ?? this.defaults.speedMs,
+      highlight: opts?.highlight ?? this.defaults.highlight,
     };
   }
 
   private async waitReady(waitFor: ActionOptions['waitFor'] = 'domcontentloaded') {
     await this.page.waitForLoadState(waitFor || 'domcontentloaded');
+  }
+
+  private async sleep(ms?: number) {
+    if (ms && ms > 0) await this.page.waitForTimeout(ms);
+  }
+
+  private async highlight(target: Locator, enable?: boolean) {
+    if (!enable) return;
+    try {
+      await target.evaluate((el: Element) => {
+        (el as HTMLElement).style.outline = '3px solid red';
+      });
+    } catch {}
   }
 
   private async captureOnFailure(name: string) {
@@ -59,66 +82,89 @@ export class Actions {
 
   async click(target: Locator, opts?: ActionOptions): Promise<void> {
     const options = this.mergeOptions(opts);
+    const delay = options.speedMs && options.speedMs > 0 ? options.speedMs : 0;
     await this.withRetry(async () => {
       if (options.preCheck) await options.preCheck();
       await target.waitFor({ state: 'visible', timeout: options.timeout });
       await this.waitReady(options.waitFor);
+      await this.highlight(target, options.highlight);
+      await this.sleep(delay);
       try {
         await target.click({ timeout: options.timeout });
       } catch (e) {
         const file = await this.captureOnFailure('click');
         throw new Error(`Fallo en click. Screenshot: ${file}. Detalle: ${(e as Error).message}`);
       }
+      await this.waitReady(options.waitFor);
+      await this.sleep(delay);
       if (options.postCheck) await options.postCheck();
     }, options);
   }
 
   async type(target: Locator, text: string, opts?: ActionOptions): Promise<void> {
     const options = this.mergeOptions(opts);
+    const delay = options.speedMs && options.speedMs > 0 ? options.speedMs : 0;
+    const keyDelay = options.speedMs && options.speedMs > 0 ? Math.max(30, Math.floor(options.speedMs / 4)) : 0;
     await this.withRetry(async () => {
       if (options.preCheck) await options.preCheck();
       await target.waitFor({ state: 'visible', timeout: options.timeout });
       await this.waitReady(options.waitFor);
+      await this.highlight(target, options.highlight);
+      await this.sleep(delay);
       try {
-        await target.fill(text, { timeout: options.timeout });
+        await target.fill('', { timeout: options.timeout });
+        await target.type(text, { timeout: options.timeout, delay: keyDelay });
       } catch (e) {
         const file = await this.captureOnFailure('type');
         throw new Error(`Fallo en type. Screenshot: ${file}. Detalle: ${(e as Error).message}`);
       }
+      await this.waitReady(options.waitFor);
+      await this.sleep(delay);
       if (options.postCheck) await options.postCheck();
     }, options);
   }
 
   async hover(target: Locator, opts?: ActionOptions): Promise<void> {
     const options = this.mergeOptions(opts);
+    const delay = options.speedMs && options.speedMs > 0 ? options.speedMs : 0;
     await this.withRetry(async () => {
       if (options.preCheck) await options.preCheck();
       await target.waitFor({ state: 'visible', timeout: options.timeout });
       await this.waitReady(options.waitFor);
+      await this.highlight(target, options.highlight);
+      await this.sleep(delay);
       try {
         await target.hover({ timeout: options.timeout });
       } catch (e) {
         const file = await this.captureOnFailure('hover');
         throw new Error(`Fallo en hover. Screenshot: ${file}. Detalle: ${(e as Error).message}`);
       }
+      await this.waitReady(options.waitFor);
+      await this.sleep(delay);
       if (options.postCheck) await options.postCheck();
     }, options);
   }
 
   async press(target: Locator, key: string, opts?: ActionOptions): Promise<void> {
+      const options = this.mergeOptions(opts);
+      const delay = options.speedMs && options.speedMs > 0 ? options.speedMs : 0;
       await this.withRetry(async () => {
-          if (opts?.preCheck) await opts.preCheck();
-          await target.waitFor({ state: 'visible', timeout: opts?.timeout ?? 10000 });
+          if (options.preCheck) await options.preCheck();
+          await target.waitFor({ state: 'visible', timeout: options.timeout ?? 10000 });
           await target.focus();
-          await this.waitReady(opts?.waitFor);
+          await this.waitReady(options.waitFor);
+          await this.highlight(target, options.highlight);
+          await this.sleep(delay);
           try {
-              await target.press(key, { timeout: opts?.timeout ?? 10000 });
+              await target.press(key, { timeout: options.timeout ?? 10000 });
           } catch (e) {
               const file = await this.captureOnFailure('press');
               throw new Error(`Fallo en press(${key}). Screenshot: ${file}. Detalle: ${(e as Error).message}`);
           }
-          if (opts?.postCheck) await opts.postCheck();
-      }, opts);
+          await this.waitReady(options.waitFor);
+          await this.sleep(delay);
+          if (options.postCheck) await options.postCheck();
+      }, options);
   }
   
   async enter(target: Locator, opts?: ActionOptions): Promise<void> {

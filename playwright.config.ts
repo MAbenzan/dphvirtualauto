@@ -5,10 +5,11 @@ dotenv.config({ path: `.env.${process.env.ENV || 'qa'}` });
 
 export default defineConfig({
   testDir: './tests',
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  retries: 0,
+  workers: 1,
+  maxFailures: 1,
   reporter: [[
     'html',
     { open: 'never' }
@@ -23,6 +24,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     actionTimeout: 15000,
     navigationTimeout: 30000,
+    launchOptions: { slowMo: Number(process.env.ACTION_SPEED_MS || '0') },
   },
 
   projects: [
